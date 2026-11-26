@@ -262,7 +262,8 @@ app.post('/api/messages', async (req, res) => {
 
     let replyText;
     try {
-      const history = await all('SELECT role, content FROM messages ORDER BY id');
+      const history = (await all('SELECT role, content FROM messages ORDER BY id'))
+        .filter((m) => !(m.role === 'assistant' && /не настроен|Не удалось получить ответ от ИИ/i.test(m.content)));
       const appContext = await ai.buildAppContext();
       replyText = await ai.assistantChat(history, appContext);
     } catch (e) {
