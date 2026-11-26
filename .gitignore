@@ -1,0 +1,8 @@
+node_modules/
+**/node_modules/
+backend/data/
+backend/uploads/
+.tmp/
+*.log
+test_note.png
+gen_test_note.py

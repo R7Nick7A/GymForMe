@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    container_name: trainapp
+    ports:
+      - "3100:3100"
+    environment:
+      - PORT=3100
+      # - GEMINI_API_KEY=AIza...   # можно задать здесь вместо настроек в приложении
+    volumes:
+      - ./backend/data:/app/backend/data
+      - ./backend/uploads:/app/backend/uploads
+    restart: unless-stopped
