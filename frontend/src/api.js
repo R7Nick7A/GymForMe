@@ -55,6 +55,8 @@ export const api = {
   uploadMedia: (formData) => request('/media', { method: 'POST', body: formData }),
   deleteMedia: (id) => request(`/media/${id}`, { method: 'DELETE' }),
   stats: () => request('/stats/summary'),
+  exercises: () => request('/exercises'),
+  exerciseData: (name) => request(`/stats/exercise-data?exercise=${encodeURIComponent(name)}`),
   messages: () => request('/messages'),
   sendMessage: (content) => request('/messages', { method: 'POST', body: JSON.stringify({ content }) }),
   parseText: (text) => request('/ai/parse-text', { method: 'POST', body: JSON.stringify({ text }) }),

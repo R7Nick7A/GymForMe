@@ -368,21 +368,57 @@ app.get('/api/stats/summary', requireAuth, async (req, res) => {
   try {
     const uid = req.userId;
     const totalWorkouts = (await get('SELECT COUNT(*) AS c FROM workouts WHERE user_id = ?', [uid])).c;
-    const last7 = (await get("SELECT COUNT(*) AS c FROM workouts WHERE user_id = ? AND date >= date('now','-7 days')", [uid])).c;
-    const last30 = (await get("SELECT COUNT(*) AS c FROM workouts WHERE user_id = ? AND date >= date('now','-30 days')", [uid])).c;
-    const volumeByDay = await all(
-      `SELECT w.date, COALESCE(SUM(s.weight * s.reps), 0) AS volume
-       FROM workouts w JOIN exercises e ON e.workout_id = w.id JOIN sets s ON s.exercise_id = e.id
-       WHERE w.user_id = ? AND s.weight IS NOT NULL AND s.reps IS NOT NULL
-       GROUP BY w.date ORDER BY w.date`,
-      [uid]
-    );
+
     const exerciseFrequency = await all(
       `SELECT e.name, COUNT(*) AS cnt, MAX(s.weight) AS max_weight, MAX(s.reps) AS max_reps
        FROM exercises e JOIN sets s ON s.exercise_id = e.id JOIN workouts w ON w.id = e.workout_id
        WHERE w.user_id = ? GROUP BY e.name ORDER BY cnt DESC LIMIT 20`,
       [uid]
     );
+
+    // Тренировки по неделям (понедельник — начало недели)
+    const dates = await all('SELECT date FROM workouts WHERE user_id = ? ORDER BY date', [uid]);
+    const byWeek = {};
+    for (const { date } of dates) {
+      const d = new Date(date + 'T00:00:00');
+      if (isNaN(d.getTime())) continue;
+      const day = d.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - diff);
+      const key = monday.toISOString().slice(0, 10);
+      byWeek[key] = (byWeek[key] || 0) + 1;
+    }
+    const workoutsByWeek = Object.entries(byWeek).map(([week, count]) => ({ week, count }));
+
+    // Прогресс объёма: последние 30 дней vs предыдущие 30
+    const today = new Date();
+    const fmt = (d) => d.toISOString().slice(0, 10);
+    const d30 = new Date(today); d30.setDate(d30.getDate() - 30);
+    const d60 = new Date(today); d60.setDate(d60.getDate() - 60);
+    const d30minus1 = new Date(d30); d30minus1.setDate(d30minus1.getDate() - 1);
+    const volumeBetween = async (from, to) => {
+      const row = await get(
+        `SELECT COALESCE(SUM(s.weight * s.reps), 0) AS v
+         FROM workouts w JOIN exercises e ON e.workout_id = w.id JOIN sets s ON s.exercise_id = e.id
+         WHERE w.user_id = ? AND w.date >= ? AND w.date <= ?`,
+        [uid, from, to]
+      );
+      return Number(row?.v || 0);
+    };
+    const volCurrent = await volumeBetween(fmt(d30), fmt(today));
+    const volPrevious = await volumeBetween(fmt(d60), fmt(d30minus1));
+    const progressPct = volPrevious > 0 ? Math.round(((volCurrent - volPrevious) / volPrevious) * 100) : (volCurrent > 0 ? 100 : 0);
+    const volBreakdown = await all(
+      `SELECT w.id, w.date, w.title, COALESCE(SUM(s.weight * s.reps), 0) AS volume
+       FROM workouts w JOIN exercises e ON e.workout_id = w.id JOIN sets s ON s.exercise_id = e.id
+       WHERE w.user_id = ? AND w.date >= ? AND w.date <= ?
+       GROUP BY w.id ORDER BY w.date`,
+      [uid, fmt(d30), fmt(today)]
+    );
+    const volumeProgress = { current: volCurrent, previous: volPrevious, changePct: progressPct, from: fmt(d30), to: fmt(today), breakdown: volBreakdown };
+
+    // Калории (оценка)
     const weightRow = await get("SELECT value FROM settings WHERE user_id = ? AND key = 'profile_weight'", [uid]);
     const weightKg = Number(weightRow?.value) || 70;
     const calRows = await all(
@@ -399,7 +435,44 @@ app.get('/api/stats/summary', requireAuth, async (req, res) => {
     }
     calories = Math.round(calories);
 
-    res.json({ totalWorkouts, last7, last30, volumeByDay, exerciseFrequency, calories, weightKg });
+    res.json({ totalWorkouts, workoutsByWeek, exerciseFrequency, calories, weightKg, volumeProgress });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ---------- exercises (for progress picker) ----------
+app.get('/api/exercises', requireAuth, async (req, res) => {
+  try {
+    const rows = await all(
+      `SELECT e.name, COUNT(*) AS cnt FROM exercises e JOIN workouts w ON w.id = e.workout_id
+       WHERE w.user_id = ? GROUP BY e.name ORDER BY cnt DESC, e.name`,
+      [req.userId]
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/stats/exercise-data', requireAuth, async (req, res) => {
+  try {
+    const name = String(req.query.exercise || '');
+    if (!name) return res.json([]);
+    const rows = await all(
+      `SELECT w.id AS workout_id, w.date, s.weight, s.reps
+       FROM exercises e JOIN workouts w ON w.id = e.workout_id JOIN sets s ON s.exercise_id = e.id
+       WHERE w.user_id = ? AND e.name = ? ORDER BY w.date, s.id`,
+      [req.userId, name]
+    );
+    const map = new Map();
+    for (const r of rows) {
+      if (!map.has(r.workout_id)) map.set(r.workout_id, { workout_id: r.workout_id, date: r.date, sets: [], volume: 0 });
+      const item = map.get(r.workout_id);
+      item.sets.push({ weight: r.weight, reps: r.reps });
+      item.volume += (Number(r.weight) || 0) * (Number(r.reps) || 0);
+    }
+    res.json([...map.values()]);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

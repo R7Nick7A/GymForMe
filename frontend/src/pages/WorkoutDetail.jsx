@@ -100,9 +100,6 @@ export default function WorkoutDetail() {
     }
   };
 
-  const tonnageOf = (sets) => sets.reduce((sum, s) => sum + (Number(s.weight) || 0) * (Number(s.reps) || 0), 0);
-  const totalTonnage = w ? w.exercises.reduce((sum, ex) => sum + tonnageOf(ex.sets), 0) : 0;
-
   if (error && !w) return <p className="text-rose-400">Ошибка: {error}</p>;
   if (!w) return <p className="text-ios-gray">Загрузка…</p>;
 
@@ -213,38 +210,14 @@ export default function WorkoutDetail() {
 
       {w.notes && <p className="whitespace-pre-wrap text-sm text-ios-gray">{w.notes}</p>}
 
-      {totalTonnage > 0 && (
-        <details className="rounded-2xl border border-brand-500/30 bg-ios-surface p-4">
-          <summary className="cursor-pointer list-none text-sm font-semibold text-brand-400">
-            🏋️ Тоннаж: {totalTonnage.toLocaleString('ru-RU')} кг · нажми, чтобы увидеть расчёт
-          </summary>
-          <p className="mt-2 text-xs text-ios-gray2">Тоннаж = Σ (вес × повторения) по всем подходам.</p>
-          <ul className="mt-2 space-y-2">
-            {w.exercises.map((ex) => {
-              const t = tonnageOf(ex.sets);
-              if (!t) return null;
-              return (
-                <li key={ex.id} className="text-sm">
-                  <span className="text-white/90">{ex.name}</span>
-                  <span className="ml-1 text-ios-gray2">
-                    {' '}({ex.sets.map((s) => `${s.weight ?? 0}×${s.reps ?? 0}`).join(' + ')}) = <b className="text-brand-400">{t} кг</b>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </details>
-      )}
-
       <div className="space-y-3">
         {w.exercises.length === 0 && (
           <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-sm text-ios-gray2">Нет упражнений. Нажми «Изменить», чтобы добавить.</p>
         )}
         {w.exercises.map((ex) => (
           <div key={ex.id} className="rounded-2xl border border-white/10 bg-ios-surface p-4">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2">
               <h2 className="font-semibold text-white">{ex.name}</h2>
-              <span className="text-xs text-ios-gray2">{tonnageOf(ex.sets)} кг</span>
             </div>
             {ex.sets.length > 0 ? (
               <div className="divide-y divide-white/5">
