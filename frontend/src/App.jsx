@@ -1,6 +1,8 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect, useRef } from 'react';
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { Home, Dumbbell, Sparkles, CalendarRange, Plus } from 'lucide-react';
+import { useAuth } from './AuthContext.jsx';
+import Auth from './pages/Auth.jsx';
 const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
 import Workouts from './pages/Workouts.jsx';
 import WorkoutDetail from './pages/WorkoutDetail.jsx';
@@ -19,10 +21,25 @@ const tabs = [
 
 function Layout() {
   const location = useLocation();
+  const mainRef = useRef(null);
+
+  // При смене вкладки — прокрутить в начало (ничего не «уезжает»)
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   const hideNav = location.pathname.startsWith('/workouts/') && location.pathname !== '/workouts';
+  const isAssistant = location.pathname === '/assistant';
+
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col">
-      <main className="flex-1 px-4 pb-28 pt-5">
+    <div className="mx-auto flex h-full w-full max-w-md flex-col md:max-w-lg">
+      <main
+        ref={mainRef}
+        className={`min-h-0 flex-1 px-4 pt-5 ${
+          isAssistant ? 'flex flex-col overflow-hidden pb-2' : 'overflow-y-auto pb-4'
+        }`}
+      >
         <Routes>
           <Route path="/" element={<Suspense fallback={<div className="p-4 text-ios-gray">Загрузка…</div>}><Dashboard /></Suspense>} />
           <Route path="/workouts" element={<Workouts />} />
@@ -34,17 +51,15 @@ function Layout() {
         </Routes>
       </main>
       {!hideNav && (
-        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-ios-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-          <div className="mx-auto flex max-w-md items-stretch justify-around">
+        <nav className="shrink-0 border-t border-white/10 bg-black/90 pb-[env(safe-area-inset-bottom)]">
+          <div className="mx-auto flex w-full max-w-md items-stretch justify-around md:max-w-lg">
             {tabs.map((t) => (
               <NavLink
                 key={t.to}
                 to={t.to}
                 end={t.end}
                 className={({ isActive }) =>
-                  `flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] ${
-                    isActive ? 'text-brand-400' : 'text-ios-gray'
-                  }`
+                  `flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] ${isActive ? 'text-brand-400' : 'text-ios-gray'}`
                 }
               >
                 <t.icon size={22} strokeWidth={2} />
@@ -59,5 +74,8 @@ function Layout() {
 }
 
 export default function App() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8 text-center text-ios-gray">Загрузка…</div>;
+  if (!user) return <Auth />;
   return <Layout />;
 }

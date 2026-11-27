@@ -5,23 +5,24 @@ const DEFAULT_MODELS = process.env.GEMINI_MODEL
   : ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'];
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-async function getApiKey() {
+async function getApiKey(userId) {
   const fromEnv = process.env.GEMINI_API_KEY;
   if (fromEnv) return fromEnv;
+  if (userId == null) return '';
   try {
-    const row = await get("SELECT value FROM settings WHERE key = 'gemini_api_key'");
+    const row = await get("SELECT value FROM settings WHERE user_id = ? AND key = 'gemini_api_key'", [userId]);
     return row?.value || '';
   } catch (_) {
     return '';
   }
 }
 
-export async function isConfigured() {
-  return !!(await getApiKey());
+export async function isConfigured(userId) {
+  return !!(await getApiKey(userId));
 }
 
-async function callGeminiOnce(contents, model, { json = false, temperature } = {}) {
-  const key = await getApiKey();
+async function callGeminiOnce(contents, model, { userId, json = false, temperature } = {}) {
+  const key = await getApiKey(userId);
   if (!key) throw new Error('API-ключ Gemini не настроен. Добавь его в Настройках.');
   const url = `${BASE_URL}/${model}:generateContent?key=${encodeURIComponent(key)}`;
   const body = { contents, generationConfig: {} };
@@ -51,12 +52,12 @@ async function callGeminiOnce(contents, model, { json = false, temperature } = {
   return out;
 }
 
-async function callGemini(contents, { json = false, model, temperature } = {}) {
+async function callGemini(contents, { userId, json = false, model, temperature } = {}) {
   const models = model ? [model] : DEFAULT_MODELS;
   let lastErr;
   for (const m of models) {
     try {
-      return await callGeminiOnce(contents, m, { json, temperature });
+      return await callGeminiOnce(contents, m, { userId, json, temperature });
     } catch (e) {
       lastErr = e;
       const retryable = /503|429|UNAVAILABLE|high demand|overloaded|temporarily/i.test(e.message);
@@ -97,39 +98,41 @@ function parseInstruction() {
 ${WORKOUT_SCHEMA}`;
 }
 
-export async function analyzeImage(base64, mimeType) {
+export async function analyzeImage(base64, mimeType, userId) {
   const contents = [
     { role: 'user', parts: [{ text: parseInstruction() }, imagePart(base64, mimeType)] },
   ];
-  const raw = await callGemini(contents, { json: true });
+  const raw = await callGemini(contents, { userId, json: true });
   return parseJson(raw);
 }
 
-export async function parseWorkoutText(inputText) {
+export async function parseWorkoutText(inputText, userId) {
   const contents = [
     { role: 'user', parts: [{ text: `${parseInstruction()}\n\nВот текст тренировки:\n"""\n${inputText}\n"""` }] },
   ];
-  const raw = await callGemini(contents, { json: true });
+  const raw = await callGemini(contents, { userId, json: true });
   return parseJson(raw);
 }
 
-export async function buildAppContext() {
+export async function buildAppContext(userId) {
   const workouts = await all(
     `SELECT w.id, w.title, w.date, w.type, w.source, w.notes,
       (SELECT COUNT(*) FROM exercises e WHERE e.workout_id = w.id) AS ex_count
-     FROM workouts w ORDER BY date DESC LIMIT 50`
+     FROM workouts w WHERE w.user_id = ? ORDER BY date DESC LIMIT 50`,
+    [userId]
   );
   const exercises = await all(
     `SELECT e.name, e.workout_id, s.weight, s.reps, w.date
      FROM exercises e JOIN sets s ON s.exercise_id = e.id JOIN workouts w ON w.id = e.workout_id
-     ORDER BY w.date DESC LIMIT 500`
+     WHERE w.user_id = ? ORDER BY w.date DESC LIMIT 500`,
+    [userId]
   );
-  const plans = await all('SELECT id, title, duration_weeks, description, plan_json, status FROM plans ORDER BY id DESC LIMIT 10');
-  const profile = await all("SELECT key, value FROM settings WHERE key != 'gemini_api_key'");
+  const plans = await all('SELECT id, title, duration_weeks, description, plan_json, status FROM plans WHERE user_id = ? ORDER BY id DESC LIMIT 10', [userId]);
+  const profile = await all("SELECT key, value FROM settings WHERE user_id = ? AND key != 'gemini_api_key'", [userId]);
   return JSON.stringify({ workouts, exercises, plans, profile }, null, 2);
 }
 
-export async function assistantChat(messages, appContext) {
+export async function assistantChat(messages, appContext, userId) {
   const system = `Ты — персональный ИИ-тренер и аналитик в приложении «Тренер» для мониторинга тренировочного процесса.
 Отвечай на русском, дружелюбно и по делу. Ты видишь все данные пользователя (ниже в JSON) и можешь анализировать их.
 ВАЖНО: подключение к нейросети работает, API-ключ уже настроен. НИКОГДА не говори, что ключ, API или доступ к ИИ не настроены — это неверно.
@@ -140,11 +143,11 @@ ${appContext}`;
     { role: 'user', parts: [{ text: system }] },
     ...messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
   ];
-  return await callGemini(contents, { temperature: 0.7 });
+  return await callGemini(contents, { userId, temperature: 0.7 });
 }
 
-export async function forecastProgress() {
-  const appContext = await buildAppContext();
+export async function forecastProgress(userId) {
+  const appContext = await buildAppContext(userId);
   const prompt = `Проанализируй историю тренировок (JSON ниже) и дай:
 1) краткий анализ текущего прогресса,
 2) прогноз развития на 1-2 месяца при сохранении режима,
@@ -152,14 +155,14 @@ export async function forecastProgress() {
 Ответь связным текстом на русском, без JSON.
 Данные:
 ${appContext}`;
-  return await callGemini([{ role: 'user', parts: [{ text: prompt }] }], { temperature: 0.5 });
+  return await callGemini([{ role: 'user', parts: [{ text: prompt }] }], { userId, temperature: 0.5 });
 }
 
-export async function suggestPlan(goal) {
-  const appContext = await buildAppContext();
+export async function suggestPlan(goal, userId) {
+  const appContext = await buildAppContext(userId);
   let effectiveGoal = goal;
   if (!effectiveGoal) {
-    const row = await get("SELECT value FROM settings WHERE key = 'profile_goal'");
+    const row = await get("SELECT value FROM settings WHERE user_id = ? AND key = 'profile_goal'", [userId]);
     effectiveGoal = row?.value || '';
   }
   effectiveGoal = effectiveGoal || 'общая физическая форма';
@@ -175,6 +178,6 @@ export async function suggestPlan(goal) {
 }
 Данные:
 ${appContext}`;
-  const raw = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], { json: true });
+  const raw = await callGemini([{ role: 'user', parts: [{ text: prompt }] }], { userId, json: true });
   return parseJson(raw);
 }

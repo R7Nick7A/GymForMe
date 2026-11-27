@@ -1,19 +1,32 @@
 const BASE = '/api';
+const TOKEN_KEY = 'trainapp_token';
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || '';
+}
+export function setToken(t) {
+  localStorage.setItem(TOKEN_KEY, t);
+}
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
 
 async function request(path, options = {}) {
-  const res = await fetch(BASE + path, {
-    headers: options.body && !(options.body instanceof FormData)
-      ? { 'Content-Type': 'application/json', ...(options.headers || {}) }
-      : options.headers || {},
-    ...options,
-  });
+  const headers = { ...(options.headers || {}) };
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (options.body && !(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(BASE + path, { ...options, headers });
   if (!res.ok) {
     let msg = `Ошибка ${res.status}`;
     try {
       const data = await res.json();
       if (data && data.error) msg = data.error;
     } catch (_) {}
-    throw new Error(msg);
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
   }
   const ct = res.headers.get('content-type') || '';
   if (ct.includes('application/json')) return res.json();
@@ -21,6 +34,14 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  // auth
+  register: (username, password) => request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  login: (username, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  recover: (username, recoveryCode, newPassword) => request('/auth/recover', { method: 'POST', body: JSON.stringify({ username, recoveryCode, newPassword }) }),
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  me: () => request('/auth/me'),
+
+  // data
   health: () => request('/health'),
   workouts: () => request('/workouts'),
   workout: (id) => request(`/workouts/${id}`),
@@ -32,6 +53,7 @@ export const api = {
   addSet: (exerciseId, data) => request(`/exercises/${exerciseId}/sets`, { method: 'POST', body: JSON.stringify(data) }),
   deleteSet: (id) => request(`/sets/${id}`, { method: 'DELETE' }),
   uploadMedia: (formData) => request('/media', { method: 'POST', body: formData }),
+  deleteMedia: (id) => request(`/media/${id}`, { method: 'DELETE' }),
   stats: () => request('/stats/summary'),
   messages: () => request('/messages'),
   sendMessage: (content) => request('/messages', { method: 'POST', body: JSON.stringify({ content }) }),

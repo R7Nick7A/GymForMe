@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Send, Sparkles } from 'lucide-react';
 import { api } from '../api.js';
 
@@ -6,14 +6,16 @@ export default function Assistant() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
-  const bottomRef = React.useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     api.messages().then(setMessages).catch(() => {});
   }, []);
 
+  // Прокручиваем именно список сообщений (а не всю страницу)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   const send = async () => {
@@ -32,15 +34,15 @@ export default function Assistant() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-7.5rem)] flex-col">
-      <header className="mb-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="mb-3 shrink-0">
         <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-white">
           <Sparkles className="text-brand-400" size={22} /> ИИ-помощник
         </h1>
         <p className="text-sm text-ios-gray">Видит все твои тренировки и анализирует их</p>
       </header>
 
-      <div className="flex-1 space-y-3 overflow-y-auto pb-3">
+      <div ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-3">
         {messages.length === 0 && (
           <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-ios-gray2">
             Задай вопрос про свои тренировки, прогресс или план.
@@ -57,10 +59,9 @@ export default function Assistant() {
             </div>
           </div>
         ))}
-        <div ref={bottomRef} />
       </div>
 
-      <div className="flex items-end gap-2 pb-2">
+      <div className="flex shrink-0 items-end gap-2 pb-1">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}

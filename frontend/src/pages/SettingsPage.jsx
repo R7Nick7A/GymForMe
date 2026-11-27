@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { KeyRound, CheckCircle2, Circle, User } from 'lucide-react';
+import { KeyRound, CheckCircle2, Circle, User, LogOut } from 'lucide-react';
 import { api } from '../api.js';
+import { useAuth } from '../AuthContext.jsx';
 
 const LEVELS = ['новичок', 'средний', 'продвинутый'];
 
 export default function SettingsPage() {
+  const { user, logout } = useAuth();
   const [configured, setConfigured] = useState(false);
   const [key, setKey] = useState('');
   const [saved, setSaved] = useState(false);
@@ -114,7 +116,7 @@ export default function SettingsPage() {
 
         <p className="mb-2 text-xs leading-relaxed text-ios-gray">
           Бесплатный ключ: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-brand-400 underline">aistudio.google.com/apikey</a>.
-          Хранится только локально.
+          Хранится только в твоём аккаунте.
         </p>
 
         <div className="flex gap-2">
@@ -133,6 +135,18 @@ export default function SettingsPage() {
             {saved ? 'Готово ✓' : 'Сохранить'}
           </button>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-white/10 bg-ios-surface p-4">
+        <p className="mb-3 text-sm text-ios-gray">
+          Вы вошли как <b className="text-white/90">{user?.username}</b>
+        </p>
+        <button
+          onClick={logout}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/40 py-2.5 text-sm font-semibold text-rose-400"
+        >
+          <LogOut size={16} /> Выйти из аккаунта
+        </button>
       </section>
     </div>
   );

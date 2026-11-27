@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Flame, TrendingUp, CalendarDays, Dumbbell, ChevronRight, Plus, Settings, Wand2 } from 'lucide-react';
+import { Flame, TrendingUp, CalendarDays, Dumbbell, ChevronRight, Plus, Settings, Wand2, X } from 'lucide-react';
 import { api } from '../api.js';
 
 export default function Dashboard() {
@@ -10,6 +10,12 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [forecast, setForecast] = useState('');
   const [forecastBusy, setForecastBusy] = useState(false);
+  const [showHelp, setShowHelp] = useState(() => localStorage.getItem('trainapp_help_hidden') !== '1');
+
+  const hideHelp = () => {
+    localStorage.setItem('trainapp_help_hidden', '1');
+    setShowHelp(false);
+  };
 
   useEffect(() => {
     Promise.all([api.stats(), api.workouts()])
@@ -48,6 +54,25 @@ export default function Dashboard() {
           <Settings size={20} />
         </Link>
       </header>
+
+      {showHelp && (
+        <section className="rounded-2xl border border-brand-500/30 bg-ios-surface p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-brand-400">📱 Как пользоваться</h2>
+            <button onClick={hideHelp} className="rounded p-1 text-ios-gray2 hover:text-white" title="Скрыть">
+              <X size={16} />
+            </button>
+          </div>
+          <ol className="list-decimal space-y-1.5 pl-5 text-sm text-ios-gray">
+            <li>Нажми <b className="text-white/90">«+ Новая»</b> (внизу) — запиши тренировку. Можно руками, текстом из заметок или фото.</li>
+            <li>ИИ сам разберёт фото или текст в упражнения и подходы — просто проверь и нажми «Сохранить».</li>
+            <li><b className="text-white/90">«Тренировки»</b> — вся твоя история.</li>
+            <li><b className="text-white/90">«Помощник»</b> — спроси ИИ о прогрессе. Он видит все твои тренировки.</li>
+            <li><b className="text-white/90">«Планы»</b> — попроси составить план на несколько недель.</li>
+          </ol>
+          <p className="mt-2 text-xs text-ios-gray2">🔒 Твои данные видишь только ты.</p>
+        </section>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Card icon={<Dumbbell className="text-brand-400" size={18} />} label="Тренировок" value={stats.totalWorkouts} />

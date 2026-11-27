@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, ImagePlus, Save, FileText, Wand2 } from 'lucide-react';
+import { Plus, Trash2, ImagePlus, Save, FileText, Wand2, X } from 'lucide-react';
 import { api } from '../api.js';
 
 const TYPES = ['strength', 'cardio', 'crossfit', 'stretching', 'other'];
@@ -44,7 +44,8 @@ export default function NewWorkout() {
       exs.map((ex) => (ex.key === exKey ? { ...ex, sets: ex.sets.filter((s) => s.key !== setKey) } : ex))
     );
 
-  const onPhotos = (e) => setPhotos(Array.from(e.target.files || []));
+  const onPhotos = (e) => setPhotos((prev) => [...prev, ...Array.from(e.target.files || [])]);
+  const removePhoto = (idx) => setPhotos((prev) => prev.filter((_, i) => i !== idx));
 
   const fileToBase64 = (file) =>
     new Promise((resolve, reject) => {
@@ -59,7 +60,7 @@ export default function NewWorkout() {
     });
 
   const applyParsed = (data) => {
-    if (data?.title && !title.trim()) setTitle(data.title);
+    if (data?.title) setTitle(data.title);
     if (data?.type && TYPES.includes(data.type)) setType(data.type);
     if (data?.notes) setNotes(data.notes);
     const exs = (data?.exercises || [])
@@ -166,21 +167,21 @@ export default function NewWorkout() {
       </label>
 
       <div className="flex gap-3">
-        <label className="flex-1">
+        <label className="min-w-0 flex-1">
           <span className="mb-1 block text-xs text-ios-gray">Дата</span>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
+            className="w-full min-w-0 rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
           />
         </label>
-        <label className="flex-1">
+        <label className="min-w-0 flex-1">
           <span className="mb-1 block text-xs text-ios-gray">Тип</span>
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
+            className="w-full min-w-0 rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
           >
             {TYPES.map((t) => (
               <option key={t} value={t}>{t}</option>
@@ -201,7 +202,7 @@ export default function NewWorkout() {
           className="w-full rounded-xl border border-white/10 bg-ios-surface2 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
         />
         <button onClick={parseText} disabled={!!parsing} className="mt-2 flex items-center gap-1.5 text-xs font-medium text-brand-400 disabled:opacity-50">
-          <Wand2 size={14} /> {parsing === 'text' ? 'Распознаю…' : 'Распознать текст'}
+          <Wand2 size={14} /> {parsing === 'text' ? 'Создаю…' : 'Создать тренировку по тексту'}
         </button>
       </section>
 
@@ -210,13 +211,30 @@ export default function NewWorkout() {
           <h2 className="flex items-center gap-2 text-sm font-semibold text-white/90">
             <ImagePlus size={16} className="text-brand-400" /> Фото / скриншот
           </h2>
-          <span className="text-xs text-ios-gray2">{photos.length ? `${photos.length} файл.` : 'не выбрано'}</span>
+          {photos.length > 0 && <span className="text-xs text-ios-gray">{photos.length} фото</span>}
         </div>
-        <input type="file" accept="image/*" multiple onChange={onPhotos} className="block w-full text-xs text-ios-gray" />
+
+        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-ios-surface2 px-3 py-2 text-xs font-medium text-brand-400">
+          + Добавить фото
+          <input type="file" accept="image/*" multiple onChange={onPhotos} className="hidden" />
+        </label>
+
         {photos.length > 0 && (
-          <button onClick={parsePhoto} disabled={!!parsing} className="mt-2 flex items-center gap-1.5 text-xs font-medium text-brand-400 disabled:opacity-50">
-            <Wand2 size={14} /> {parsing === 'photo' ? 'Распознаю…' : 'Распознать фото'}
-          </button>
+          <>
+            <ul className="mt-2 space-y-1.5">
+              {photos.map((f, i) => (
+                <li key={i} className="flex items-center justify-between rounded-lg bg-ios-surface2 px-2.5 py-1.5 text-xs text-ios-gray">
+                  <span className="truncate">{f.name}</span>
+                  <button onClick={() => removePhoto(i)} className="ml-2 shrink-0 text-ios-gray2 hover:text-rose-400" title="Убрать это фото">
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button onClick={parsePhoto} disabled={!!parsing} className="mt-2 flex items-center gap-1.5 text-xs font-medium text-brand-400 disabled:opacity-50">
+              <Wand2 size={14} /> {parsing === 'photo' ? 'Создаю…' : 'Создать тренировку по фото'}
+            </button>
+          </>
         )}
       </section>
 
@@ -231,13 +249,24 @@ export default function NewWorkout() {
         {exercises.map((ex) => (
           <div key={ex.key} className="rounded-xl border border-white/10 bg-ios-surface p-3">
             <div className="mb-2 flex items-center gap-2">
-              <input
-                value={ex.name}
-                onChange={(e) => updateExercise(ex.key, 'name', e.target.value)}
-                placeholder="Название упражнения"
-                className="flex-1 rounded-lg border border-white/10 bg-ios-surface2 px-3 py-2 text-sm text-white outline-none focus:border-brand-500"
-              />
-              <button onClick={() => removeExercise(ex.key)} className="text-ios-gray2 hover:text-rose-400">
+              <div className="relative min-w-0 flex-1">
+                <input
+                  value={ex.name}
+                  onChange={(e) => updateExercise(ex.key, 'name', e.target.value)}
+                  placeholder="Название упражнения"
+                  className="w-full rounded-lg border border-white/10 bg-ios-surface2 px-3 py-2 pr-8 text-sm text-white outline-none focus:border-brand-500"
+                />
+                {ex.name && (
+                  <button
+                    onClick={() => updateExercise(ex.key, 'name', '')}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-ios-gray2 hover:text-white"
+                    title="Очистить название"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <button onClick={() => removeExercise(ex.key)} className="shrink-0 text-ios-gray2 hover:text-rose-400" title="Удалить упражнение">
                 <Trash2 size={16} />
               </button>
             </div>
@@ -261,8 +290,8 @@ export default function NewWorkout() {
                     placeholder="повт."
                     className="w-16 rounded-lg border border-white/10 bg-ios-surface2 px-2 py-1.5 text-sm text-white outline-none focus:border-brand-500"
                   />
-                  <button onClick={() => removeSet(ex.key, s.key)} className="ml-auto text-ios-gray2 hover:text-rose-400">
-                    <Trash2 size={14} />
+                  <button onClick={() => removeSet(ex.key, s.key)} className="ml-auto rounded p-1 text-ios-gray2 hover:text-rose-400" title="Убрать подход">
+                    <X size={15} />
                   </button>
                 </div>
               ))}

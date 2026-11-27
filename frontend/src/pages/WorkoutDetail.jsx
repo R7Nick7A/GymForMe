@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X } from 'lucide-react';
 import { api } from '../api.js';
 
 export default function WorkoutDetail() {
@@ -87,8 +87,8 @@ export default function WorkoutDetail() {
                     <span className="w-12 text-ios-gray">#{s.set_number}</span>
                     <span className="w-16">{s.weight != null ? `${s.weight} кг` : '—'}</span>
                     <span className="flex-1">{s.reps != null ? s.reps : '—'}</span>
-                    <button onClick={() => delSet(s.id)} className="text-ios-gray2 hover:text-rose-400">
-                      <Trash2 size={14} />
+                    <button onClick={() => delSet(s.id)} className="rounded p-1 text-ios-gray2 hover:text-rose-400" title="Убрать подход">
+                      <X size={15} />
                     </button>
                   </div>
                 ))}

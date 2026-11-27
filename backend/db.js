@@ -13,7 +13,6 @@ let local = null;
 let client = null;
 
 if (USE_TURSO) {
-  // @libsql/client/web — чистый JS (hrana over fetch), работает и в Node, и на хостинге
   const { createClient } = await import('@libsql/client/web');
   client = createClient({
     url: process.env.TURSO_DATABASE_URL,
@@ -27,8 +26,24 @@ if (USE_TURSO) {
 }
 
 const SCHEMA = `
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  recovery_code TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS workouts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
   title TEXT NOT NULL,
   date TEXT NOT NULL,
   type TEXT,
@@ -59,6 +74,7 @@ CREATE TABLE IF NOT EXISTS sets (
 
 CREATE TABLE IF NOT EXISTS media (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
   workout_id INTEGER REFERENCES workouts(id) ON DELETE SET NULL,
   filename TEXT NOT NULL,
   original_name TEXT,
@@ -70,6 +86,7 @@ CREATE TABLE IF NOT EXISTS media (
 
 CREATE TABLE IF NOT EXISTS messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
   role TEXT NOT NULL,
   content TEXT NOT NULL,
   created_at TEXT DEFAULT (datetime('now'))
@@ -77,6 +94,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE TABLE IF NOT EXISTS plans (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
   title TEXT NOT NULL,
   duration_weeks INTEGER,
   description TEXT,
@@ -86,17 +104,49 @@ CREATE TABLE IF NOT EXISTS plans (
 );
 
 CREATE TABLE IF NOT EXISTS settings (
-  key TEXT PRIMARY KEY,
-  value TEXT
+  user_id INTEGER,
+  key TEXT,
+  value TEXT,
+  PRIMARY KEY (user_id, key)
 );
 `;
 
-export async function init() {
+export async function exec(sql) {
   if (USE_TURSO) {
-    await client.executeMultiple(SCHEMA);
+    await client.executeMultiple(sql);
   } else {
-    local.exec(SCHEMA);
+    local.exec(sql);
   }
+}
+
+async function migrate() {
+  // Добавить user_id в старые таблицы (если колонки нет)
+  for (const t of ['workouts', 'media', 'messages', 'plans']) {
+    try {
+      await exec(`ALTER TABLE ${t} ADD COLUMN user_id INTEGER`);
+    } catch (_) {
+      // колонка уже есть — ок
+    }
+  }
+
+  // settings: если старая схема (без user_id) — пересоздать
+  let hasUserCol = true;
+  try {
+    await get('SELECT user_id FROM settings LIMIT 1');
+  } catch (_) {
+    hasUserCol = false;
+  }
+  if (!hasUserCol) {
+    await exec('ALTER TABLE settings RENAME TO settings_old');
+    await exec('CREATE TABLE settings (user_id INTEGER, key TEXT, value TEXT, PRIMARY KEY (user_id, key))');
+    await exec('INSERT INTO settings (user_id, key, value) SELECT NULL, key, value FROM settings_old');
+    await exec('DROP TABLE settings_old');
+  }
+}
+
+export async function init() {
+  await exec(SCHEMA);
+  await migrate();
 }
 
 export async function all(sql, params = []) {
@@ -124,8 +174,8 @@ export async function run(sql, params = []) {
   return { lastInsertRowid: Number(info.lastInsertRowid), changes: info.changes };
 }
 
-export async function getWorkoutFull(id) {
-  const workout = await get('SELECT * FROM workouts WHERE id = ?', [id]);
+export async function getWorkoutFull(id, userId) {
+  const workout = await get('SELECT * FROM workouts WHERE id = ? AND user_id = ?', [id, userId]);
   if (!workout) return null;
   const exercises = await all(
     'SELECT * FROM exercises WHERE workout_id = ? ORDER BY order_index, id',
