@@ -22,9 +22,8 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Иконка календаря в поле даты — в фирменном зелёном тоне */
+/* Скрываем нативную иконку календаря — рисуем свою в цвет стрелок */
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(64%) sepia(57%) saturate(500%) hue-rotate(82deg) brightness(93%) contrast(95%);
-  opacity: 0.95;
+  opacity: 0;
   cursor: pointer;
 }

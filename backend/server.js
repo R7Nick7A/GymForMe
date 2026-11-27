@@ -523,6 +523,58 @@ app.put('/api/settings', requireAuth, async (req, res) => {
   }
 });
 
+// ---------- custom workout types ----------
+app.get('/api/workout-types', requireAuth, async (req, res) => {
+  try {
+    res.json(await all('SELECT id, name FROM workout_types WHERE user_id = ? ORDER BY name', [req.userId]));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/workout-types', requireAuth, async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Введи название типа' });
+    if (name.length > 40) return res.status(400).json({ error: 'Слишком длинное название' });
+    const exists = await get('SELECT id FROM workout_types WHERE user_id = ? AND lower(name) = lower(?)', [req.userId, name]);
+    if (exists) return res.status(409).json({ error: 'Такой тип уже есть' });
+    const info = await run('INSERT INTO workout_types (user_id, name) VALUES (?, ?)', [req.userId, name]);
+    res.status(201).json({ id: info.lastInsertRowid, name });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/workout-types/:id', requireAuth, async (req, res) => {
+  try {
+    await run('DELETE FROM workout_types WHERE id = ? AND user_id = ?', [Number(req.params.id), req.userId]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ---------- account deletion ----------
+app.delete('/api/account', requireAuth, async (req, res) => {
+  try {
+    const uid = req.userId;
+    await run('DELETE FROM sets WHERE exercise_id IN (SELECT id FROM exercises WHERE workout_id IN (SELECT id FROM workouts WHERE user_id = ?))', [uid]);
+    await run('DELETE FROM exercises WHERE workout_id IN (SELECT id FROM workouts WHERE user_id = ?)', [uid]);
+    await run('DELETE FROM workouts WHERE user_id = ?', [uid]);
+    await run('DELETE FROM media WHERE user_id = ?', [uid]);
+    await run('DELETE FROM messages WHERE user_id = ?', [uid]);
+    await run('DELETE FROM plans WHERE user_id = ?', [uid]);
+    await run('DELETE FROM settings WHERE user_id = ?', [uid]);
+    await run('DELETE FROM workout_types WHERE user_id = ?', [uid]);
+    await run('DELETE FROM sessions WHERE user_id = ?', [uid]);
+    await run('DELETE FROM users WHERE id = ?', [uid]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ---------- static frontend ----------
 const frontendDist = join(__dirname, '..', 'frontend', 'dist');
 app.use(express.static(frontendDist, {

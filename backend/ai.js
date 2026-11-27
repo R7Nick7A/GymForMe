@@ -94,7 +94,17 @@ const WORKOUT_SCHEMA = `{
   ]
 }`;
 
-function parseInstruction() {
+async function getCustomTypes(userId) {
+  try {
+    const rows = await all('SELECT name FROM workout_types WHERE user_id = ?', [userId]);
+    return rows.map((r) => r.name);
+  } catch (_) {
+    return [];
+  }
+}
+
+function parseInstruction(customTypes = []) {
+  const types = ['strength', 'cardio', 'crossfit', 'stretching', 'other', ...customTypes];
   return `Ты — спортивный аналитик. Твоя задача — разобрать описание тренировки и вернуть ТОЛЬКО валидный JSON без пояснений и markdown-обёрток.
 Правила:
 - Логически пойми структуру тренировки: какие упражнения, сколько подходов, вес, повторения.
@@ -102,21 +112,24 @@ function parseInstruction() {
 - Вес переводи в килограммы (если написано в фунтах/другом — пересчитай, это укажи в notes).
 - Сгруппируй одинаковые упражнения в один элемент с несколькими подходами.
 - Время в секундах, дистанция в километрах.
+- Тип тренировки: выбери максимально подходящий из списка: ${types.join(', ')}. Если ничего не подходит — используй "other".
 Формат ответа (строго такой JSON):
 ${WORKOUT_SCHEMA}`;
 }
 
 export async function analyzeImage(base64, mimeType, userId) {
+  const customTypes = await getCustomTypes(userId);
   const contents = [
-    { role: 'user', parts: [{ text: parseInstruction() }, imagePart(base64, mimeType)] },
+    { role: 'user', parts: [{ text: parseInstruction(customTypes) }, imagePart(base64, mimeType)] },
   ];
   const raw = await callGemini(contents, { userId, json: true });
   return parseJson(raw);
 }
 
 export async function parseWorkoutText(inputText, userId) {
+  const customTypes = await getCustomTypes(userId);
   const contents = [
-    { role: 'user', parts: [{ text: `${parseInstruction()}\n\nВот текст тренировки:\n"""\n${inputText}\n"""` }] },
+    { role: 'user', parts: [{ text: `${parseInstruction(customTypes)}\n\nВот текст тренировки:\n"""\n${inputText}\n"""` }] },
   ];
   const raw = await callGemini(contents, { userId, json: true });
   return parseJson(raw);
@@ -137,7 +150,8 @@ export async function buildAppContext(userId) {
   );
   const plans = await all('SELECT id, title, duration_weeks, description, plan_json, status FROM plans WHERE user_id = ? ORDER BY id DESC LIMIT 10', [userId]);
   const profile = await all("SELECT key, value FROM settings WHERE user_id = ? AND key != 'gemini_api_key'", [userId]);
-  return JSON.stringify({ workouts, exercises, plans, profile }, null, 2);
+  const customTypes = await getCustomTypes(userId);
+  return JSON.stringify({ workouts, exercises, plans, profile, custom_types: customTypes }, null, 2);
 }
 
 export async function assistantChat(messages, appContext, userId) {

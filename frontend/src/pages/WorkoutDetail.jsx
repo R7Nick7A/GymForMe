@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, Save, X, Trash2, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Save, X, Trash2, ChevronDown, Calendar } from 'lucide-react';
 import { api } from '../api.js';
 import { TYPE_OPTIONS, typeLabel } from '../labels.js';
 
@@ -12,9 +12,11 @@ export default function WorkoutDetail() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [customTypes, setCustomTypes] = useState([]);
 
   const load = () => api.workout(id).then(setW).catch((e) => setError(e.message));
   useEffect(() => { load(); }, [id]);
+  useEffect(() => { api.workoutTypes().then(setCustomTypes).catch(() => {}); }, []);
 
   const startEdit = () => {
     setForm({
@@ -38,6 +40,26 @@ export default function WorkoutDetail() {
 
   // --- хелперы редактирования формы ---
   const setField = (field, val) => setForm((f) => ({ ...f, [field]: val }));
+
+  const typeOptions = [
+    ...TYPE_OPTIONS,
+    ...customTypes.map((t) => ({ value: t.name, label: t.name })),
+  ];
+  const onTypeChange = async (val) => {
+    if (val === '__add__') {
+      const name = (window.prompt('Название нового типа тренировки') || '').trim();
+      if (!name) return;
+      try {
+        const t = await api.createWorkoutType(name);
+        setCustomTypes((prev) => [...prev, t]);
+        setField('type', t.name);
+      } catch (e) {
+        setError(e.message);
+      }
+      return;
+    }
+    setField('type', val);
+  };
   const addExercise = () => setForm((f) => ({ ...f, exercises: [...f.exercises, { key: Date.now(), name: '', sets: [{ key: Date.now() + 1, weight: '', reps: '' }] }] }));
   const removeExercise = (ek) => setForm((f) => ({ ...f, exercises: f.exercises.filter((e) => e.key !== ek) }));
   const updateExercise = (ek, field, val) => setForm((f) => ({ ...f, exercises: f.exercises.map((e) => (e.key === ek ? { ...e, [field]: val } : e)) }));
@@ -105,15 +127,19 @@ export default function WorkoutDetail() {
         <div className="grid grid-cols-2 gap-3">
           <label className="min-w-0">
             <span className="mb-1 block text-xs text-ios-gray">Дата</span>
-            <input type="date" value={form.date} onChange={(e) => setField('date', e.target.value)} className="block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500" />
+            <div className="relative">
+              <input type="date" value={form.date} onChange={(e) => setField('date', e.target.value)} className="block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 pr-9 text-sm text-white outline-none focus:border-brand-500" />
+              <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-400" />
+            </div>
           </label>
           <div className="min-w-0">
             <span className="mb-1 block text-xs text-ios-gray">Тип</span>
             <div className="relative">
-              <select value={form.type} onChange={(e) => setField('type', e.target.value)} className="block w-full appearance-none rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 pr-9 text-sm text-white outline-none focus:border-brand-500">
-                {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              <select value={form.type} onChange={(e) => onTypeChange(e.target.value)} className="block w-full appearance-none rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 pr-9 text-sm text-white outline-none focus:border-brand-500">
+                {typeOptions.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                <option value="__add__">➕ Добавить свой тип…</option>
               </select>
-              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ios-gray" />
+              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-400" />
             </div>
           </div>
         </div>

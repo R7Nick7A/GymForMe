@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { KeyRound, CheckCircle2, Circle, User, LogOut } from 'lucide-react';
+import { KeyRound, CheckCircle2, Circle, User, LogOut, ChevronDown, Trash2 } from 'lucide-react';
 import { api } from '../api.js';
 import { useAuth } from '../AuthContext.jsx';
 
@@ -46,6 +46,15 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const deleteAccount = async () => {
+    if (!window.confirm('Удалить аккаунт и ВСЕ данные (тренировки, фото, чат)? Это необратимо.')) return;
+    if (!window.confirm('Точно удалить? Восстановить не получится.')) return;
+    try {
+      await api.deleteAccount();
+    } catch (_) {}
+    await logout();
+  };
+
   return (
     <div className="space-y-4">
       <header>
@@ -76,18 +85,21 @@ export default function SettingsPage() {
               className="w-full rounded-xl border border-white/10 bg-ios-surface2 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
             />
           </label>
-          <label className="block">
+          <div className="block">
             <span className="mb-1 block text-xs text-ios-gray">Уровень</span>
-            <select
-              value={level}
-              onChange={(e) => setLevel(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-ios-surface2 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
-            >
-              {LEVELS.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-          </label>
+            <div className="relative">
+              <select
+                value={level}
+                onChange={(e) => setLevel(e.target.value)}
+                className="block w-full appearance-none rounded-xl border border-white/10 bg-ios-surface2 px-3 py-2.5 pr-9 text-sm text-white outline-none focus:border-brand-500"
+              >
+                {LEVELS.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </select>
+              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-400" />
+            </div>
+          </div>
           <label className="block">
             <span className="mb-1 block text-xs text-ios-gray">Вес (кг) — для расчёта калорий</span>
             <input
@@ -159,6 +171,12 @@ export default function SettingsPage() {
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/40 py-2.5 text-sm font-semibold text-rose-400"
         >
           <LogOut size={16} /> Выйти из аккаунта
+        </button>
+        <button
+          onClick={deleteAccount}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-xs font-semibold text-rose-500/70"
+        >
+          <Trash2 size={14} /> Удалить аккаунт навсегда
         </button>
       </section>
     </div>

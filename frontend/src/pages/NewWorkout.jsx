@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, ImagePlus, Save, FileText, Wand2, X, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, ImagePlus, Save, FileText, Wand2, X, ChevronDown, Calendar } from 'lucide-react';
 import { api } from '../api.js';
 import { TYPE_OPTIONS } from '../labels.js';
 
@@ -18,6 +18,11 @@ export default function NewWorkout() {
   const [saving, setSaving] = useState(false);
   const [parsing, setParsing] = useState('');
   const [error, setError] = useState('');
+  const [customTypes, setCustomTypes] = useState([]);
+
+  useEffect(() => {
+    api.workoutTypes().then(setCustomTypes).catch(() => {});
+  }, []);
 
   const addExercise = () => {
     setExercises((e) => [...e, { key: Date.now(), name: '', sets: [{ key: Date.now() + 1, weight: '', reps: '' }] }]);
@@ -45,6 +50,28 @@ export default function NewWorkout() {
       exs.map((ex) => (ex.key === exKey ? { ...ex, sets: ex.sets.filter((s) => s.key !== setKey) } : ex))
     );
 
+  const typeOptions = [
+    ...TYPE_OPTIONS,
+    ...customTypes.map((t) => ({ value: t.name, label: t.name })),
+  ];
+  if (type && !typeOptions.some((o) => o.value === type)) typeOptions.push({ value: type, label: type });
+
+  const onTypeChange = async (val) => {
+    if (val === '__add__') {
+      const name = (window.prompt('Название нового типа тренировки') || '').trim();
+      if (!name) return;
+      try {
+        const t = await api.createWorkoutType(name);
+        setCustomTypes((prev) => [...prev, t]);
+        setType(t.name);
+      } catch (e) {
+        setError(e.message);
+      }
+      return;
+    }
+    setType(val);
+  };
+
   const onPhotos = (e) => setPhotos((prev) => [...prev, ...Array.from(e.target.files || [])]);
   const removePhoto = (idx) => setPhotos((prev) => prev.filter((_, i) => i !== idx));
 
@@ -62,7 +89,10 @@ export default function NewWorkout() {
 
   const applyParsed = (data) => {
     if (data?.title) setTitle(data.title);
-    if (data?.type && TYPES.includes(data.type)) setType(data.type);
+    if (data?.type) {
+      const known = ['strength', 'cardio', 'crossfit', 'stretching', 'other', ...customTypes.map((t) => t.name)];
+      setType(known.includes(data.type) ? data.type : 'other');
+    }
     if (data?.notes) setNotes(data.notes);
     const exs = (data?.exercises || [])
       .filter((ex) => ex?.name)
@@ -170,26 +200,30 @@ export default function NewWorkout() {
       <div className="grid grid-cols-2 gap-3">
         <label className="min-w-0">
           <span className="mb-1 block text-xs text-ios-gray">Дата</span>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
-          />
+          <div className="relative">
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 pr-9 text-sm text-white outline-none focus:border-brand-500"
+            />
+            <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-400" />
+          </div>
         </label>
         <div className="min-w-0">
           <span className="mb-1 block text-xs text-ios-gray">Тип</span>
           <div className="relative">
             <select
               value={type}
-              onChange={(e) => setType(e.target.value)}
+              onChange={(e) => onTypeChange(e.target.value)}
               className="block w-full appearance-none rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 pr-9 text-sm text-white outline-none focus:border-brand-500"
             >
-              {TYPE_OPTIONS.map((t) => (
+              {typeOptions.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
+              <option value="__add__">➕ Добавить свой тип…</option>
             </select>
-            <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ios-gray" />
+            <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-400" />
           </div>
         </div>
       </div>

@@ -65,4 +65,8 @@ export const api = {
   deletePlan: (id) => request(`/plans/${id}`, { method: 'DELETE' }),
   settings: () => request('/settings'),
   updateSettings: (values) => request('/settings', { method: 'PUT', body: JSON.stringify(values) }),
+  workoutTypes: () => request('/workout-types'),
+  createWorkoutType: (name) => request('/workout-types', { method: 'POST', body: JSON.stringify({ name }) }),
+  deleteWorkoutType: (id) => request(`/workout-types/${id}`, { method: 'DELETE' }),
+  deleteAccount: () => request('/account', { method: 'DELETE' }),
 };

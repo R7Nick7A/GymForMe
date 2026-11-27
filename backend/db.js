@@ -109,6 +109,12 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT,
   PRIMARY KEY (user_id, key)
 );
+
+CREATE TABLE IF NOT EXISTS workout_types (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  name TEXT NOT NULL
+);
 `;
 
 export async function exec(sql) {
