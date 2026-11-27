@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Flame, TrendingUp, Dumbbell, ChevronRight, Plus, Settings, Wand2, X, Activity, CalendarDays, ChevronLeft, ChevronDown } from 'lucide-react';
 import { api } from '../api.js';
+import { typeLabel } from '../labels.js';
 
 const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -279,7 +280,29 @@ export default function Dashboard() {
 
       {modal === 'calories' && (
         <Modal title="Как считаются калории" onClose={() => setModal(null)}>
-          <p className="mb-2 text-xs text-ios-gray2">Формула: Калории = (MET × 3.5 × вес ÷ 200) × минуты. Вес — {stats.weightKg} кг (можно задать в Настройках). Это оценка.</p>
+          <div className="mb-3 space-y-1.5 text-xs text-ios-gray2">
+            <p><b className="text-white/80">MET</b> — метаболический эквивалент: во сколько раз активность «тяжелее» покоя (1 MET ≈ 1 ккал на кг в час).</p>
+            <p>Формула одна для всех: <b className="text-white/80">ккал = MET × 3.5 × вес(кг) ÷ 200 × минуты</b>.</p>
+            <p>Но MET разный по типу: силовая — {stats.metByType?.strength}, кардио — {stats.metByType?.cardio}, кроссфит — {stats.metByType?.crossfit}, растяжка — {stats.metByType?.stretching}, другое — {stats.metByType?.other}.</p>
+            <p>Вес: <b className="text-white/80">{stats.weightKg} кг</b> (меняется в Настройках).</p>
+            <p>Минуты — оценка: <b className="text-white/80">подходов × 2</b> (минимум 10).</p>
+          </div>
+          {(stats.caloriesBreakdown || []).length > 0 && (
+            <div className="mb-3">
+              <p className="mb-1 text-xs text-ios-gray2">Разбивка по тренировкам:</p>
+              <ul className="space-y-1 text-xs">
+                {stats.caloriesBreakdown.map((c) => (
+                  <li key={c.id} className="flex justify-between gap-2 text-ios-gray">
+                    <span className="truncate">{c.date} · {typeLabel(c.type)}</span>
+                    <span className="shrink-0 text-right text-white/90">
+                      {c.kcal} ккал
+                      <span className="block text-[10px] text-ios-gray2">MET {c.met} × {c.minutes} мин · {c.sets} подх.</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <p className="text-sm text-white">Итого: <b className="text-brand-400">{stats.calories} ккал</b></p>
         </Modal>
       )}
