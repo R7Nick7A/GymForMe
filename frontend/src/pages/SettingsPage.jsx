@@ -15,6 +15,7 @@ export default function SettingsPage() {
   const [name, setName] = useState('');
   const [goal, setGoal] = useState('');
   const [level, setLevel] = useState('средний');
+  const [weight, setWeight] = useState('');
 
   useEffect(() => {
     api.settings()
@@ -24,13 +25,14 @@ export default function SettingsPage() {
         setName(v.profile_name || '');
         setGoal(v.profile_goal || '');
         setLevel(v.profile_level || 'средний');
+        setWeight(v.profile_weight || '');
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   const saveProfile = async () => {
-    await api.updateSettings({ profile_name: name, profile_goal: goal, profile_level: level });
+    await api.updateSettings({ profile_name: name, profile_goal: goal, profile_level: level, profile_weight: weight });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -86,6 +88,17 @@ export default function SettingsPage() {
               ))}
             </select>
           </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-ios-gray">Вес (кг) — для расчёта калорий</span>
+            <input
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              type="number"
+              inputMode="decimal"
+              placeholder="Например, 75"
+              className="w-full rounded-xl border border-white/10 bg-ios-surface2 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
+            />
+          </label>
           <button
             onClick={saveProfile}
             className="w-full rounded-xl bg-ios-surface2 py-2.5 text-sm font-semibold text-brand-400"
@@ -116,7 +129,7 @@ export default function SettingsPage() {
 
         <p className="mb-2 text-xs leading-relaxed text-ios-gray">
           Бесплатный ключ: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-brand-400 underline">aistudio.google.com/apikey</a>.
-          Хранится только в твоём аккаунте.
+          Если не добавлять свой — используется общий ключ приложения (настроенный владельцем).
         </p>
 
         <div className="flex gap-2">

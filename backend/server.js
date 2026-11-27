@@ -383,7 +383,23 @@ app.get('/api/stats/summary', requireAuth, async (req, res) => {
        WHERE w.user_id = ? GROUP BY e.name ORDER BY cnt DESC LIMIT 20`,
       [uid]
     );
-    res.json({ totalWorkouts, last7, last30, volumeByDay, exerciseFrequency });
+    const weightRow = await get("SELECT value FROM settings WHERE user_id = ? AND key = 'profile_weight'", [uid]);
+    const weightKg = Number(weightRow?.value) || 70;
+    const calRows = await all(
+      `SELECT w.type, COUNT(s.id) AS sets
+       FROM workouts w LEFT JOIN exercises e ON e.workout_id = w.id LEFT JOIN sets s ON s.exercise_id = e.id
+       WHERE w.user_id = ? GROUP BY w.id`,
+      [uid]
+    );
+    let calories = 0;
+    for (const r of calRows) {
+      const met = r.type === 'cardio' ? 8 : r.type === 'crossfit' ? 7 : r.type === 'stretching' ? 3 : 6;
+      const minutes = Math.max(Number(r.sets) * 2, 10);
+      calories += ((met * 3.5 * weightKg) / 200) * minutes;
+    }
+    calories = Math.round(calories);
+
+    res.json({ totalWorkouts, last7, last30, volumeByDay, exerciseFrequency, calories, weightKg });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

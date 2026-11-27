@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Pencil, Save, X, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Save, X, Trash2, ChevronDown } from 'lucide-react';
 import { api } from '../api.js';
-
-const TYPES = ['strength', 'cardio', 'crossfit', 'stretching', 'other'];
+import { TYPE_OPTIONS, typeLabel } from '../labels.js';
 
 export default function WorkoutDetail() {
   const { id } = useParams();
@@ -108,12 +107,15 @@ export default function WorkoutDetail() {
             <span className="mb-1 block text-xs text-ios-gray">Дата</span>
             <input type="date" value={form.date} onChange={(e) => setField('date', e.target.value)} className="block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500" />
           </label>
-          <label className="min-w-0">
+          <div className="min-w-0">
             <span className="mb-1 block text-xs text-ios-gray">Тип</span>
-            <select value={form.type} onChange={(e) => setField('type', e.target.value)} className="block w-full min-w-0 max-w-full rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500">
-              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </label>
+            <div className="relative">
+              <select value={form.type} onChange={(e) => setField('type', e.target.value)} className="block w-full appearance-none rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 pr-9 text-sm text-white outline-none focus:border-brand-500">
+                {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ios-gray" />
+            </div>
+          </div>
         </div>
 
         <label className="block">
@@ -176,7 +178,7 @@ export default function WorkoutDetail() {
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-2xl font-bold tracking-tight text-white">{w.title}</h1>
-          <p className="text-xs text-ios-gray">{w.date}{w.type ? ` · ${w.type}` : ''}</p>
+          <p className="text-xs text-ios-gray">{w.date}{w.type ? ` · ${typeLabel(w.type)}` : ''}</p>
         </div>
         <button onClick={startEdit} className="flex shrink-0 items-center gap-1.5 rounded-xl bg-ios-surface2 px-3 py-2 text-xs font-semibold text-brand-400">
           <Pencil size={14} /> Изменить
@@ -188,7 +190,7 @@ export default function WorkoutDetail() {
       {totalTonnage > 0 && (
         <details className="rounded-2xl border border-brand-500/30 bg-ios-surface p-4">
           <summary className="cursor-pointer list-none text-sm font-semibold text-brand-400">
-            🏋️ Тоннаж: {totalTonnage.toLocaleString('ru-RU')} кг — как считается
+            🏋️ Тоннаж: {totalTonnage.toLocaleString('ru-RU')} кг · нажми, чтобы увидеть расчёт
           </summary>
           <p className="mt-2 text-xs text-ios-gray2">Тоннаж = Σ (вес × повторения) по всем подходам.</p>
           <ul className="mt-2 space-y-2">

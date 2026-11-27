@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, ImagePlus, Save, FileText, Wand2, X } from 'lucide-react';
+import { Plus, Trash2, ImagePlus, Save, FileText, Wand2, X, ChevronDown } from 'lucide-react';
 import { api } from '../api.js';
+import { TYPE_OPTIONS } from '../labels.js';
 
 const TYPES = ['strength', 'cardio', 'crossfit', 'stretching', 'other'];
 
@@ -176,18 +177,21 @@ export default function NewWorkout() {
             className="block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
           />
         </label>
-        <label className="min-w-0">
+        <div className="min-w-0">
           <span className="mb-1 block text-xs text-ios-gray">Тип</span>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="block w-full min-w-0 max-w-full rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
-          >
-            {TYPES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </label>
+          <div className="relative">
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="block w-full appearance-none rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 pr-9 text-sm text-white outline-none focus:border-brand-500"
+            >
+              {TYPE_OPTIONS.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ios-gray" />
+          </div>
+        </div>
       </div>
 
       <section className="rounded-2xl border border-white/10 bg-ios-surface p-4">

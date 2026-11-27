@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: dark;
+}
+
 html, body, #root {
   height: 100%;
 }
@@ -16,4 +20,11 @@ body {
 
 * {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Иконка календаря в поле даты — в фирменном зелёном тоне */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(64%) sepia(57%) saturate(500%) hue-rotate(82deg) brightness(93%) contrast(95%);
+  opacity: 0.95;
+  cursor: pointer;
 }

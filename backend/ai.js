@@ -8,13 +8,21 @@ const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 async function getApiKey(userId) {
   const fromEnv = process.env.GEMINI_API_KEY;
   if (fromEnv) return fromEnv;
-  if (userId == null) return '';
-  try {
-    const row = await get("SELECT value FROM settings WHERE user_id = ? AND key = 'gemini_api_key'", [userId]);
-    return row?.value || '';
-  } catch (_) {
-    return '';
+  if (userId != null) {
+    try {
+      const row = await get("SELECT value FROM settings WHERE user_id = ? AND key = 'gemini_api_key'", [userId]);
+      if (row?.value) return row.value;
+    } catch (_) {}
   }
+  // Общий ключ: берём ключ владельца (первого пользователя), чтобы новым пользователям не нужно было вводить его самим
+  try {
+    const owner = await get('SELECT id FROM users ORDER BY id LIMIT 1');
+    if (owner) {
+      const row = await get("SELECT value FROM settings WHERE user_id = ? AND key = 'gemini_api_key'", [owner.id]);
+      if (row?.value) return row.value;
+    }
+  } catch (_) {}
+  return '';
 }
 
 export async function isConfigured(userId) {

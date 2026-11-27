@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Flame, TrendingUp, CalendarDays, Dumbbell, ChevronRight, Plus, Settings, Wand2, X } from 'lucide-react';
+import { Flame, TrendingUp, CalendarDays, Dumbbell, ChevronRight, Plus, Settings, Wand2, X, Activity } from 'lucide-react';
 import { api } from '../api.js';
 
 export default function Dashboard() {
@@ -43,6 +43,21 @@ export default function Dashboard() {
 
   const totalVolume = stats.volumeByDay.reduce((sum, d) => sum + d.volume, 0);
 
+  // Стрик: сколько дней подряд (до сегодня/вчера) есть тренировки
+  const streak = (() => {
+    const set = new Set(workouts.map((w) => w.date));
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (!set.has(fmt(d))) {
+      d.setDate(d.getDate() - 1);
+      if (!set.has(fmt(d))) return 0;
+    }
+    let n = 0;
+    while (set.has(fmt(d))) { n += 1; d.setDate(d.getDate() - 1); }
+    return n;
+  })();
+
   return (
     <div className="space-y-5">
       <header className="flex items-start justify-between">
@@ -76,10 +91,13 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 gap-3">
         <Card icon={<Dumbbell className="text-brand-400" size={18} />} label="Тренировок" value={stats.totalWorkouts} />
-        <Card icon={<CalendarDays className="text-sky-400" size={18} />} label="За 7 дней" value={stats.last7} />
-        <Card icon={<Flame className="text-orange-400" size={18} />} label="За 30 дней" value={stats.last30} />
+        <Card icon={<Flame className="text-orange-400" size={18} />} label="Стрик, дней" value={streak} />
+        <Card icon={<Activity className="text-sky-400" size={18} />} label="Калории, ккал" value={(stats.calories || 0).toLocaleString('ru-RU')} />
         <Card icon={<TrendingUp className="text-violet-400" size={18} />} label="Объём, кг" value={totalVolume.toLocaleString('ru-RU')} />
       </div>
+      <p className="text-[11px] text-ios-gray2">
+        Стрик — дни подряд с тренировками. Калории — оценка по весу и объёму (вес можно задать в Настройках).
+      </p>
 
       {stats.volumeByDay.length > 0 && (
         <section className="rounded-2xl border border-white/10 bg-ios-surface p-4">
