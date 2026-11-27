@@ -166,22 +166,22 @@ export default function NewWorkout() {
         />
       </label>
 
-      <div className="flex gap-3">
-        <label className="min-w-0 flex-1">
+      <div className="grid grid-cols-2 gap-3">
+        <label className="min-w-0">
           <span className="mb-1 block text-xs text-ios-gray">Дата</span>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full min-w-0 rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
+            className="block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
           />
         </label>
-        <label className="min-w-0 flex-1">
+        <label className="min-w-0">
           <span className="mb-1 block text-xs text-ios-gray">Тип</span>
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="w-full min-w-0 rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
+            className="block w-full min-w-0 max-w-full rounded-xl border border-white/10 bg-ios-surface px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500"
           >
             {TYPES.map((t) => (
               <option key={t} value={t}>{t}</option>

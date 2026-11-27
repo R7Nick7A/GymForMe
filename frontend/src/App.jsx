@@ -4,12 +4,12 @@ import { Home, Dumbbell, Sparkles, CalendarRange, Plus } from 'lucide-react';
 import { useAuth } from './AuthContext.jsx';
 import Auth from './pages/Auth.jsx';
 const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
-import Workouts from './pages/Workouts.jsx';
-import WorkoutDetail from './pages/WorkoutDetail.jsx';
-import NewWorkout from './pages/NewWorkout.jsx';
-import Assistant from './pages/Assistant.jsx';
-import Plans from './pages/Plans.jsx';
-import SettingsPage from './pages/SettingsPage.jsx';
+const Workouts = lazy(() => import('./pages/Workouts.jsx'));
+const WorkoutDetail = lazy(() => import('./pages/WorkoutDetail.jsx'));
+const NewWorkout = lazy(() => import('./pages/NewWorkout.jsx'));
+const Assistant = lazy(() => import('./pages/Assistant.jsx'));
+const Plans = lazy(() => import('./pages/Plans.jsx'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
 
 const tabs = [
   { to: '/', label: 'Главная', icon: Home, end: true },
@@ -40,15 +40,17 @@ function Layout() {
           isAssistant ? 'flex flex-col overflow-hidden pb-2' : 'overflow-y-auto pb-4'
         }`}
       >
-        <Routes>
-          <Route path="/" element={<Suspense fallback={<div className="p-4 text-ios-gray">Загрузка…</div>}><Dashboard /></Suspense>} />
-          <Route path="/workouts" element={<Workouts />} />
-          <Route path="/workouts/:id" element={<WorkoutDetail />} />
-          <Route path="/new" element={<NewWorkout />} />
-          <Route path="/plans" element={<Plans />} />
-          <Route path="/assistant" element={<Assistant />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
+        <Suspense fallback={<div className="p-4 text-ios-gray">Загрузка…</div>}>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/workouts" element={<Workouts />} />
+            <Route path="/workouts/:id" element={<WorkoutDetail />} />
+            <Route path="/new" element={<NewWorkout />} />
+            <Route path="/plans" element={<Plans />} />
+            <Route path="/assistant" element={<Assistant />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </Suspense>
       </main>
       {!hideNav && (
         <nav className="shrink-0 border-t border-white/10 bg-black/90 pb-[env(safe-area-inset-bottom)]">

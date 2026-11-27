@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
+import compression from 'compression';
 import { mkdirSync } from 'node:fs';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +17,7 @@ const MAX_USERS = 100;
 
 const app = express();
 app.use(cors());
+app.use(compression());
 app.use(express.json({ limit: '25mb' }));
 
 const storage = multer.diskStorage({
@@ -228,11 +230,31 @@ app.put('/api/workouts/:id', requireAuth, async (req, res) => {
     const id = Number(req.params.id);
     const existing = await get('SELECT * FROM workouts WHERE id = ? AND user_id = ?', [id, req.userId]);
     if (!existing) return res.status(404).json({ error: 'not found' });
-    const { title, date, type, source, notes } = req.body || {};
+    const { title, date, type, source, notes, exercises } = req.body || {};
     await run('UPDATE workouts SET title = ?, date = ?, type = ?, source = ?, notes = ? WHERE id = ? AND user_id = ?', [
       parseBody(title, existing.title), parseBody(date, existing.date), parseBody(type, existing.type),
       parseBody(source, existing.source), parseBody(notes, existing.notes), id, req.userId,
     ]);
+
+    if (Array.isArray(exercises)) {
+      await run('DELETE FROM exercises WHERE workout_id = ?', [id]);
+      for (let i = 0; i < exercises.length; i++) {
+        const ex = exercises[i];
+        if (!ex || !ex.name) continue;
+        const exInfo = await run('INSERT INTO exercises (workout_id, name, order_index, notes) VALUES (?, ?, ?, ?)', [
+          id, ex.name, i, parseBody(ex.notes, null),
+        ]);
+        const exerciseId = exInfo.lastInsertRowid;
+        if (Array.isArray(ex.sets)) {
+          for (const s of ex.sets) {
+            await run(
+              'INSERT INTO sets (exercise_id, set_number, weight, reps, duration_sec, distance, rest_sec, rpe) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+              [exerciseId, parseBody(s.set_number, null), parseBody(s.weight, null), parseBody(s.reps, null), parseBody(s.duration_sec, null), parseBody(s.distance, null), parseBody(s.rest_sec, null), parseBody(s.rpe, null)]
+            );
+          }
+        }
+      }
+    }
     res.json(await getWorkoutFull(id, req.userId));
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -487,8 +509,15 @@ app.put('/api/settings', requireAuth, async (req, res) => {
 
 // ---------- static frontend ----------
 const frontendDist = join(__dirname, '..', 'frontend', 'dist');
-app.use(express.static(frontendDist));
+app.use(express.static(frontendDist, {
+  maxAge: '1y',
+  immutable: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 app.get(/^\/(?!api).*/, (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(join(frontendDist, 'index.html'), (err) => {
     if (err) res.status(404).json({ error: 'Frontend not built yet' });
   });
